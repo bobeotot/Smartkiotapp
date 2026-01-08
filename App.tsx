@@ -27,6 +27,15 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
+  // Lấy cấu hình phòng từ LocalStorage (để link iCal không bị mất)
+  const roomConfigs = useMemo(() => {
+    const saved = localStorage.getItem('smart_kiot_room_configs');
+    if (saved) {
+      return JSON.parse(saved) as Record<string, RoomConfig>;
+    }
+    return ROOM_ICAL_CONFIG;
+  }, []);
+
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -81,17 +90,24 @@ const App: React.FC = () => {
   const handleSyncBooking = async () => {
     setIsSyncing(true);
     try {
-      const updated = await syncBookingCom(transactions, ROOM_ICAL_CONFIG);
-      const newOnes = updated.filter(u => !transactions.find(t => t.id === u.id || t.externalId === u.externalId));
+      // Sử dụng cấu hình từ LocalStorage để đồng bộ
+      const currentConfigs = JSON.parse(localStorage.getItem('smart_kiot_room_configs') || JSON.stringify(ROOM_ICAL_CONFIG));
+      const updated = await syncBookingCom(transactions, currentConfigs);
+      
+      const newOnes = updated.filter(u => !transactions.find(t => (t.id === u.id || (t.externalId && t.externalId === u.externalId))));
+      
       if (newOnes.length > 0) {
         await dbService.syncTransactions(newOnes);
         if (dbService.isOfflineMode) {
            setTransactions(prev => [...newOnes, ...prev]);
         }
+        alert(`Đã cập nhật ${newOnes.length} đơn hàng mới từ Booking.com`);
+      } else {
+        alert("Lịch đã được cập nhật mới nhất (Không có đơn mới).");
       }
-      alert(`Đã cập nhật ${newOnes.length} đơn hàng mới từ Booking.com`);
     } catch (e) {
-      alert("Lỗi đồng bộ: Vui lòng kiểm tra lại đường dẫn iCal trong Cấu hình.");
+      console.error(e);
+      alert("Lỗi đồng bộ: Vui lòng kiểm tra lại đường dẫn iCal trong phần 'Đồng bộ 2 chiều'.");
     } finally {
       setIsSyncing(false);
     }
