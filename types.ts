@@ -34,6 +34,7 @@ export interface Transaction {
   room?: string; 
   checkIn?: string; 
   checkOut?: string;
+  isPaid?: boolean;
   // Metadata cho Healthy Food: Key là định dạng "YYYY-MM-DD:index" (với index là thứ tự buổi trong ngày)
   foodMetadata?: Record<string, FoodDayMetadata>;
 }
