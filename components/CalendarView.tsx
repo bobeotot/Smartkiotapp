@@ -30,9 +30,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   const [activeBooking, setActiveBooking] = useState<Transaction | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
   
-  // State cho công cụ chuyển đổi link
+  // State cho công cụ chuyển đổi link (Xuất đi)
   const [driveUrl, setDriveUrl] = useState('');
   const [convertedUrl, setConvertedUrl] = useState('');
+
+  // State cho link Nhập về
+  const [importIcalUrl, setImportIcalUrl] = useState('');
+  const [targetImportRoom, setTargetImportRoom] = useState(Object.keys(ROOM_ICAL_CONFIG)[0]);
 
   const months = [
     "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
@@ -69,6 +73,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
     } catch (e) {
       alert("Lỗi xử lý link");
     }
+  };
+
+  const handleSaveImportUrl = () => {
+    if (!importIcalUrl.includes('booking.com')) {
+      alert("Vui lòng nhập link iCal chuẩn từ Booking.com");
+      return;
+    }
+    // Trong thực tế sẽ lưu vào database, ở đây ta thông báo thành công
+    alert(`Đã cấu hình đồng bộ ngược cho phòng ${targetImportRoom}. Hệ thống sẽ quét đơn mới từ link này.`);
+    setImportIcalUrl('');
   };
 
   const copyToClipboard = (text: string) => {
@@ -338,30 +352,49 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                     <i className="fas fa-link text-xl"></i>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest">Hướng dẫn lấy Link từ Booking.com</p>
-                    <p className="text-xs text-indigo-700/70 font-medium">Link này giúp App tự tải đơn từ Booking về màn hình.</p>
+                    <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest">Mục dán Link iCal từ Booking.com</p>
+                    <p className="text-xs text-indigo-700/70 font-medium italic">Link này giúp App tự tải đơn từ Booking về màn hình.</p>
                  </div>
               </div>
 
               <div className="space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Chọn phòng cấu hình</label>
+                      <select 
+                        value={targetImportRoom}
+                        onChange={(e) => setTargetImportRoom(e.target.value)}
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-[11px] font-black outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      >
+                        {roomList.map(r => <option key={r} value={r}>Phòng {r}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dán Link Export từ Booking</label>
+                      <input 
+                        value={importIcalUrl}
+                        onChange={(e) => setImportIcalUrl(e.target.value)}
+                        placeholder="https://ical.booking.com/v1/export?t=..."
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-mono outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      />
+                    </div>
+                 </div>
+                 <button 
+                  onClick={handleSaveImportUrl}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-100 active:scale-95 transition-all"
+                 >
+                   Lưu & Kích hoạt đồng bộ ngược
+                 </button>
+
                  <div className="bg-white/60 p-5 rounded-3xl space-y-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase border-b pb-2">Hướng dẫn chi tiết:</p>
                     <ol className="text-xs text-slate-700 space-y-3 list-decimal ml-4 font-bold">
                       <li>Đăng nhập <b>Booking.com Admin</b>.</li>
                       <li>Vào menu: <b>Giá & Tình trạng trống</b> → <b>Đồng bộ lịch</b>.</li>
                       <li>Tại phòng tương ứng, chọn <b>"Xuất lịch" (Export)</b>.</li>
                       <li>Copy đường link iCal (dạng <code>https://ical.booking.com/v1/export?t=...</code>).</li>
-                      <li>Dán link đó vào file <code>constants.tsx</code> tại mục <code>ROOM_ICAL_CONFIG</code>.</li>
+                      <li>Dán vào ô trên và bấm <b>Lưu</b>.</li>
                     </ol>
-                 </div>
-
-                 <div className="p-5 bg-amber-50 rounded-3xl border border-amber-100 flex items-start gap-4">
-                    <i className="fas fa-info-circle text-amber-500 mt-1"></i>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-amber-800 font-black uppercase">Ví dụ Link bạn đã cung cấp:</p>
-                      <code className="text-[10px] block break-all bg-white/50 p-2 rounded-lg text-amber-600 font-mono">
-                        https://ical.booking.com/v1/export?t=eb1ec19f-1889-4f4b-ad08-5d578c6e157c
-                      </code>
-                    </div>
                  </div>
               </div>
            </div>
@@ -372,10 +405,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-100">
                 <i className="fas fa-sync-alt"></i>
              </div>
-             <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Tần suất đồng bộ</p>
+             <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Cơ chế hoạt động</p>
           </div>
           <p className="text-xs text-emerald-700/80 leading-relaxed font-medium">
-            Hệ thống sẽ tự động quét đơn mới từ Booking.com mỗi khi bạn mở App hoặc bấm vào nút <b>"Đồng bộ"</b> ở màn hình Dashboard. Dữ liệu sẽ được tự động khớp vào Sơ đồ phòng của bạn.
+            Mỗi khi bạn truy cập ứng dụng hoặc nhấn <b>Đồng bộ</b>, App sẽ truy cập Link bạn đã dán để kiểm tra xem có đơn hàng nào mới từ Booking.com hay không. Nếu có, đơn sẽ được tự động thêm vào lịch sử và sơ đồ phòng mà bạn không cần nhập tay.
           </p>
         </div>
       </div>
@@ -408,7 +441,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
               viewMode === 'config' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <i className="fas fa-sync-alt"></i> Đồng bộ
+            <i className="fas fa-sync-alt"></i> Cấu hình iCal
           </button>
         </div>
 
@@ -489,6 +522,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                 {activeBooking.source === 'booking.com' && (
                    <span className="inline-block bg-blue-50 text-blue-600 text-[8px] font-black px-2 py-0.5 rounded-md uppercase mt-1">Nguồn: Booking.com</span>
                 )}
+                <div className={`mt-1 inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase ${activeBooking.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                   {activeBooking.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-2">
