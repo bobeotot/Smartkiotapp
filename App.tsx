@@ -8,7 +8,7 @@ import { Receipt } from './components/Receipt';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
 import { FoodScheduleView } from './components/FoodScheduleView';
-import { syncBookingCom, generateAppICal } from './services/bookingService';
+import { syncBookingCom } from './services/bookingService';
 import { dbService } from './services/dbService';
 
 type ViewState = 'dashboard' | 'calendar' | 'food-schedule';
@@ -27,13 +27,8 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
-  // Xử lý chế độ "iCal Server"
-  const urlParams = new URLSearchParams(window.location.search);
-  const icalRoom = urlParams.get('ical');
-
   useEffect(() => {
-    // Luôn tải dữ liệu nếu có yêu cầu iCal (kể cả chưa login)
-    if (!isLoggedIn && !icalRoom) return;
+    if (!isLoggedIn) return;
 
     let unsubscribe: (() => void) | undefined;
 
@@ -69,17 +64,7 @@ const App: React.FC = () => {
 
     initApp();
     return () => unsubscribe?.();
-  }, [isLoggedIn, icalRoom]);
-
-  // TRẢ VỀ ICAL THUẦN TÚY (DÀNH CHO BOT)
-  if (icalRoom && !isLoading && transactions.length > 0) {
-    const icalContent = generateAppICal(transactions, icalRoom);
-    // Quan trọng: Thay đổi body thành text thuần, không có thẻ <pre> hay HTML
-    // Điều này giúp robot của Booking.com nhận diện đúng định dạng file .ics
-    document.body.innerText = icalContent;
-    document.title = `room_${icalRoom}.ics`;
-    return null;
-  }
+  }, [isLoggedIn]);
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
