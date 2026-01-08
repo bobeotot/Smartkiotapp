@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Transaction, Category } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Transaction, Category, RoomConfig } from '../types';
 import { ROOM_ICAL_CONFIG } from '../constants';
 import { generateAppICal } from '../services/bookingService';
 
@@ -29,6 +29,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [activeBooking, setActiveBooking] = useState<Transaction | null>(null);
   
+  // State cho cấu hình phòng (Lưu vĩnh viễn)
+  const [localConfigs, setLocalConfigs] = useState<Record<string, RoomConfig>>(() => {
+    const saved = localStorage.getItem('smart_kiot_room_configs');
+    return saved ? JSON.parse(saved) : ROOM_ICAL_CONFIG;
+  });
+
   // State cho link Nhập về từ Booking.com
   const [importIcalUrl, setImportIcalUrl] = useState('');
   const [targetImportRoom, setTargetImportRoom] = useState(Object.keys(ROOM_ICAL_CONFIG)[0]);
@@ -57,7 +63,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   };
 
   const handleConvertDriveLink = () => {
-    // Regex tìm ID file từ link Google Drive
     const match = driveUrl.match(/\/d\/(.+?)\/(view|edit|usp)/);
     if (match && match[1]) {
       const directLink = `https://drive.google.com/uc?export=download&id=${match[1]}`;
@@ -73,14 +78,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   };
 
   const handleSaveImportUrl = () => {
-    if (!importIcalUrl.includes('booking.com') && !importIcalUrl.includes('google.com')) {
-      alert("Vui lòng dán link Export hợp lệ từ Booking.com hoặc Google Calendar");
+    if (!importIcalUrl.startsWith('http')) {
+      alert("Vui lòng dán link Export hợp lệ");
       return;
     }
-    if (ROOM_ICAL_CONFIG[targetImportRoom]) {
-      ROOM_ICAL_CONFIG[targetImportRoom].icalUrl = importIcalUrl;
-    }
-    alert(`Đã lưu cấu hình đồng bộ cho phòng ${targetImportRoom}. Nhấn nút 'Đồng bộ' ở Header để tải đơn hàng mới.`);
+    
+    const updated = {
+      ...localConfigs,
+      [targetImportRoom]: {
+        ...localConfigs[targetImportRoom],
+        icalUrl: importIcalUrl
+      }
+    };
+    
+    setLocalConfigs(updated);
+    localStorage.setItem('smart_kiot_room_configs', JSON.stringify(updated));
+    
+    alert(`Đã lưu cấu hình phòng ${targetImportRoom}. Nhấn nút 'Đồng bộ' ở Header để tải đơn hàng mới.`);
     setImportIcalUrl('');
   };
 
@@ -273,31 +287,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {roomList.map(room => (
-              <button 
-                key={room} 
-                onClick={() => downloadICalFile(room)}
-                className="group p-6 rounded-[32px] border-2 border-dashed border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-center space-y-3"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-slate-100 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center mx-auto transition-all text-slate-400">
-                   <i className="fas fa-file-download text-sm"></i>
-                </div>
-                <div>
-                  <div className="font-black text-slate-800 uppercase text-[10px]">Tải file .ics</div>
-                  <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Phòng {room}</div>
-                </div>
-              </button>
+              <div key={room} className="space-y-2">
+                <button 
+                  onClick={() => downloadICalFile(room)}
+                  className="w-full group p-6 rounded-[32px] border-2 border-dashed border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-center space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-2xl bg-slate-100 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center mx-auto transition-all text-slate-400">
+                    <i className="fas fa-file-download text-sm"></i>
+                  </div>
+                  <div>
+                    <div className="font-black text-slate-800 uppercase text-[10px]">Tải file .ics</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Phòng {room}</div>
+                  </div>
+                </button>
+              </div>
             ))}
-          </div>
-
-          <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
-            <h5 className="text-[10px] font-black text-blue-700 uppercase">Hướng dẫn đồng bộ sang Booking.com:</h5>
-            <ol className="text-[10px] text-blue-600/80 font-bold space-y-2 list-decimal ml-4 uppercase tracking-tight leading-relaxed">
-              <li>
-  Chuột phải vào file trên Drive → <strong>Chia sẻ</strong> → Đổi thành{" "}
-  <strong>Bất kỳ ai có đường liên kết</strong>.
-</li>
-
-            </ol>
           </div>
         </div>
 
@@ -314,18 +318,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Chọn phòng cấu hình</label>
                   <select 
                     value={targetImportRoom}
-                    onChange={(e) => setTargetImportRoom(e.target.value)}
+                    onChange={(e) => {
+                      setTargetImportRoom(e.target.value);
+                      setImportIcalUrl(localConfigs[e.target.value]?.icalUrl || '');
+                    }}
                     className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-[11px] font-black outline-none"
                   >
                     {roomList.map(r => <option key={r} value={r}>Phòng {r}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Dán Link Export từ Booking</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Link Export hiện tại</label>
                   <input 
                     value={importIcalUrl}
                     onChange={(e) => setImportIcalUrl(e.target.value)}
-                    placeholder="https://ical.booking.com/v1/export?t=..."
+                    placeholder="Dán link iCal từ Booking..."
                     className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-mono outline-none"
                   />
                 </div>
@@ -334,8 +341,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                 onClick={handleSaveImportUrl}
                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-100 active:scale-95 transition-all"
               >
-                Lưu Link Nhập
+                Lưu Link & Cấu Hình
               </button>
+           </div>
+           
+           <div className="p-6 border rounded-3xl bg-slate-50 border-slate-200 space-y-3">
+              <p className="text-[10px] font-black text-slate-500 uppercase">Trạng thái Link đã lưu:</p>
+              <div className="space-y-2">
+                {roomList.map(room => (
+                  <div key={room} className="flex justify-between items-center text-[9px] font-bold">
+                    <span className="text-slate-400 uppercase">Phòng {room}:</span>
+                    <span className={localConfigs[room]?.icalUrl ? 'text-emerald-600' : 'text-red-400'}>
+                      {localConfigs[room]?.icalUrl ? 'ĐÃ CÓ LINK' : 'CHƯA CÓ LINK'}
+                    </span>
+                  </div>
+                ))}
+              </div>
            </div>
         </div>
       </div>
