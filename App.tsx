@@ -27,11 +27,12 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
-  // Xử lý chế độ "iCal Server" - Trả về text/calendar thuần túy cho Booking.com
+  // Xử lý chế độ "iCal Server"
   const urlParams = new URLSearchParams(window.location.search);
   const icalRoom = urlParams.get('ical');
 
   useEffect(() => {
+    // Luôn tải dữ liệu nếu có yêu cầu iCal (kể cả chưa login)
     if (!isLoggedIn && !icalRoom) return;
 
     let unsubscribe: (() => void) | undefined;
@@ -70,23 +71,15 @@ const App: React.FC = () => {
     return () => unsubscribe?.();
   }, [isLoggedIn, icalRoom]);
 
-  // Nếu Booking.com gọi đến link có ?ical=... thì chỉ in ra iCal text và dừng lại
+  // TRẢ VỀ ICAL THUẦN TÚY (DÀNH CHO BOT)
   if (icalRoom && !isLoading && transactions.length > 0) {
     const icalContent = generateAppICal(transactions, icalRoom);
-    // Thay thế toàn bộ HTML bằng text/calendar
-    document.body.innerHTML = `<pre style="white-space: pre-wrap; font-family: monospace;">${icalContent}</pre>`;
+    // Quan trọng: Thay đổi body thành text thuần, không có thẻ <pre> hay HTML
+    // Điều này giúp robot của Booking.com nhận diện đúng định dạng file .ics
+    document.body.innerText = icalContent;
+    document.title = `room_${icalRoom}.ics`;
     return null;
   }
-
-  const enableDemoMode = () => {
-    dbService.setOffline(true);
-    setDbStatus('offline_mode');
-    setIsLoading(true);
-    const unsub = dbService.subscribeTransactions((data) => {
-      setTransactions(data);
-      setIsLoading(false);
-    });
-  };
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
@@ -111,8 +104,9 @@ const App: React.FC = () => {
            setTransactions(prev => [...newOnes, ...prev]);
         }
       }
+      alert(`Đã cập nhật ${newOnes.length} đơn hàng mới từ Booking.com`);
     } catch (e) {
-      alert("Lỗi đồng bộ");
+      alert("Lỗi đồng bộ: Vui lòng kiểm tra lại đường dẫn iCal trong Cấu hình.");
     } finally {
       setIsSyncing(false);
     }
