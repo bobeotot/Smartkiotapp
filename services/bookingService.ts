@@ -9,6 +9,16 @@ export interface BookingEvent {
   room: string;
 }
 
+// Hàm ngắt dòng cho iCal (không quá 75 ký tự theo chuẩn)
+const foldLine = (line: string): string => {
+  if (line.length <= 75) return line;
+  return line.substring(0, 75) + "\r\n " + foldLine(line.substring(75));
+};
+
+const formatLine = (key: string, value: string): string => {
+  return foldLine(`${key}:${value}`) + "\r\n";
+};
+
 const parseICal = (text: string, room: string): BookingEvent[] => {
   const events: BookingEvent[] = [];
   const lines = text.split(/\r?\n/);
@@ -49,6 +59,7 @@ export const syncBookingCom = async (
     if (!config.icalUrl) continue;
 
     try {
+      // Sử dụng corsproxy để đọc dữ liệu từ booking.com về App
       const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(config.icalUrl)}`;
       const response = await fetch(proxyUrl);
       
@@ -87,34 +98,29 @@ export const syncBookingCom = async (
         quantity: nights,
         unit: 'đêm',
         checkIn: event.start,
-        checkOut: event.end
+        checkOut: event.end,
+        isPaid: true
       };
       updatedTransactions.push(newTx);
     }
-  });
-
-  updatedTransactions = updatedTransactions.filter(t => {
-    if (t.source === 'booking.com') {
-      return allEvents.some(e => e.id === t.externalId);
-    }
-    return true;
   });
 
   return updatedTransactions;
 };
 
 /**
- * Tạo nội dung file iCal chuẩn RFC 5545
+ * Tạo nội dung file iCal chuẩn RFC 5545 cho Booking.com
  */
 export const generateAppICal = (transactions: Transaction[], targetRoom: string): string => {
   const now = new Date().toISOString().replace(/[-:.]/g, '').split('T')[0] + 'T000000Z';
   
-  let ical = "BEGIN:VCALENDAR\r\n";
-  ical += "VERSION:2.0\r\n";
-  ical += "PRODID:-//Smart Kiot//NONSGML v1.0//EN\r\n";
-  ical += "METHOD:PUBLISH\r\n";
-  ical += "X-WR-CALNAME:Smart Kiot - Room " + targetRoom + "\r\n";
-  ical += "X-WR-TIMEZONE:Asia/Ho_Chi_Minh\r\n";
+  let ical = "";
+  ical += formatLine("BEGIN", "VCALENDAR");
+  ical += formatLine("VERSION", "2.0");
+  ical += formatLine("PRODID", "-//Smart Kiot//NONSGML v1.0//EN");
+  ical += formatLine("CALSCALE", "GREGORIAN");
+  ical += formatLine("METHOD", "PUBLISH");
+  ical += formatLine("X-WR-CALNAME", `Smart Kiot - Room ${targetRoom}`);
   
   const homestayManual = transactions.filter(t => 
     t.category === Category.HOMESTAY && 
@@ -126,19 +132,20 @@ export const generateAppICal = (transactions: Transaction[], targetRoom: string)
     const start = t.checkIn?.replace(/-/g, '') || "";
     const end = t.checkOut?.replace(/-/g, '') || "";
     if (start && end) {
-      ical += "BEGIN:VEVENT\r\n";
-      ical += `UID:${t.id}@smartkiotsusu.app\r\n`;
-      ical += `DTSTAMP:${now}\r\n`;
-      ical += `DTSTART;VALUE=DATE:${start}\r\n`;
-      ical += `DTEND;VALUE=DATE:${end}\r\n`;
-      ical += `SUMMARY:Booked via Smart Kiot (${t.guestName || 'Guest'})\r\n`;
-      ical += `DESCRIPTION:Manual booking for Room ${targetRoom}\r\n`;
-      ical += "STATUS:CONFIRMED\r\n";
-      ical += "TRANSP:OPAQUE\r\n";
-      ical += "END:VEVENT\r\n";
+      ical += formatLine("BEGIN", "VEVENT");
+      ical += formatLine("UID", `${t.id}@smartkiot.app`);
+      ical += formatLine("DTSTAMP", now);
+      ical += formatLine("DTSTART;VALUE=DATE", start);
+      ical += formatLine("DTEND;VALUE=DATE", end);
+      ical += formatLine("SUMMARY", `Booked: ${t.guestName || 'Guest'}`);
+      ical += formatLine("DESCRIPTION", `Manual booking on Smart Kiot App`);
+      ical += formatLine("STATUS", "CONFIRMED");
+      ical += formatLine("SEQUENCE", "0");
+      ical += formatLine("TRANSP", "OPAQUE");
+      ical += formatLine("END", "VEVENT");
     }
   });
 
-  ical += "END:VCALENDAR";
+  ical += formatLine("END", "VCALENDAR");
   return ical;
 };
