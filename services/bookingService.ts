@@ -15,9 +15,21 @@ const foldLine = (line: string): string => {
   return line.substring(0, 75) + "\r\n " + foldLine(line.substring(75));
 };
 
-// Chuẩn hóa xuống dòng CRLF cho iCal (\r\n)
 const formatLine = (key: string, value: string): string => {
   return foldLine(`${key}:${value}`) + "\r\n";
+};
+
+/**
+ * Xử lý ngày tháng từ iCal: 20241025 hoặc 20241025T120000Z
+ * Trả về định dạng: YYYY-MM-DD
+ */
+const formatIcalDate = (raw: string): string => {
+  const datePart = raw.split('T')[0]; // Lấy phần trước chữ T nếu có
+  if (datePart.length < 8) return "";
+  const y = datePart.substring(0, 4);
+  const m = datePart.substring(4, 6);
+  const d = datePart.substring(6, 8);
+  return `${y}-${m}-${d}`;
 };
 
 const parseICal = (text: string, room: string): BookingEvent[] => {
@@ -26,24 +38,25 @@ const parseICal = (text: string, room: string): BookingEvent[] => {
   let currentEvent: Partial<BookingEvent> | null = null;
 
   lines.forEach(line => {
-    if (line.startsWith('BEGIN:VEVENT')) {
+    const cleanLine = line.trim();
+    if (cleanLine.startsWith('BEGIN:VEVENT')) {
       currentEvent = { room };
-    } else if (line.startsWith('END:VEVENT')) {
+    } else if (cleanLine.startsWith('END:VEVENT')) {
       if (currentEvent?.id && currentEvent?.start && currentEvent?.end) {
         events.push(currentEvent as BookingEvent);
       }
       currentEvent = null;
     } else if (currentEvent) {
-      if (line.startsWith('UID:')) currentEvent.id = line.substring(4).trim();
-      if (line.startsWith('DTSTART')) {
-        const val = line.split(/[:;]/).pop() || "";
-        currentEvent.start = `${val.substring(0, 4)}-${val.substring(4, 6)}-${val.substring(6, 8)}`;
+      if (cleanLine.startsWith('UID:')) currentEvent.id = cleanLine.substring(4).trim();
+      if (cleanLine.startsWith('DTSTART')) {
+        const val = cleanLine.split(/[:;]/).pop() || "";
+        currentEvent.start = formatIcalDate(val);
       }
-      if (line.startsWith('DTEND')) {
-        const val = line.split(/[:;]/).pop() || "";
-        currentEvent.end = `${val.substring(0, 4)}-${val.substring(4, 6)}-${val.substring(6, 8)}`;
+      if (cleanLine.startsWith('DTEND')) {
+        const val = cleanLine.split(/[:;]/).pop() || "";
+        currentEvent.end = formatIcalDate(val);
       }
-      if (line.startsWith('SUMMARY:')) currentEvent.summary = line.substring(8).trim();
+      if (cleanLine.startsWith('SUMMARY:')) currentEvent.summary = cleanLine.substring(8).trim();
     }
   });
 
@@ -60,13 +73,16 @@ export const syncBookingCom = async (
     if (!config.icalUrl) continue;
 
     try {
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(config.icalUrl)}`;
+      // Sử dụng proxy thay thế nếu corsproxy.io gặp vấn đề
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(config.icalUrl)}`;
       const response = await fetch(proxyUrl);
       
       if (!response.ok) continue;
 
-      const icalText = await response.text();
-      if (icalText.includes('BEGIN:VCALENDAR')) {
+      const data = await response.json();
+      const icalText = data.contents;
+
+      if (icalText && icalText.includes('BEGIN:VCALENDAR')) {
         allEvents = [...allEvents, ...parseICal(icalText, roomNumber)];
       }
     } catch (error) {
@@ -75,17 +91,20 @@ export const syncBookingCom = async (
   }
 
   let updatedTransactions = [...currentTransactions];
+  let addedCount = 0;
 
   allEvents.forEach(event => {
+    // Kiểm tra xem đã tồn tại giao dịch này chưa dựa trên externalId (UID từ iCal)
     const exists = updatedTransactions.find(t => t.externalId === event.id);
+    
     if (!exists) {
       const start = new Date(event.start);
       const end = new Date(event.end);
       const nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-      const price = roomConfigs[event.room]?.price || 0;
+      const price = roomConfigs[event.room]?.price || 350000;
       
       const newTx: Transaction = {
-        id: `auto-${Date.now()}-${event.id}`,
+        id: `auto-${event.id}`, // Dùng UID làm ID để tránh trùng lặp
         externalId: event.id,
         source: 'booking.com',
         category: Category.HOMESTAY,
@@ -94,28 +113,25 @@ export const syncBookingCom = async (
         originalAmount: price * nights,
         discount: 0,
         date: new Date().toISOString(),
-        description: `[Booking.com] Phòng ${event.room} (${event.start} - ${event.end})`,
+        description: `[Booking.com] ${event.summary || 'Khách đặt'} (${event.start} - ${event.end})`,
         quantity: nights,
         unit: 'đêm',
         checkIn: event.start,
         checkOut: event.end,
-        isPaid: true
+        isPaid: true,
+        guestName: event.summary?.replace('Booked - ', '') || 'Khách Booking'
       };
       updatedTransactions.push(newTx);
+      addedCount++;
     }
   });
 
   return updatedTransactions;
 };
 
-/**
- * Tạo nội dung file iCal chuẩn RFC 5545 cho Booking.com
- * Yêu cầu: Không có HTML, xuống dòng CRLF, có METHOD:PUBLISH
- */
 export const generateAppICal = (transactions: Transaction[], targetRoom: string): string => {
   const now = new Date().toISOString().replace(/[-:.]/g, '').split('T')[0] + 'T000000Z';
   
-  // Xây dựng chuỗi iCal với CRLF chuẩn (\r\n)
   let ical = "BEGIN:VCALENDAR\r\n";
   ical += "VERSION:2.0\r\n";
   ical += "PRODID:-//Smart Kiot//NONSGML v1.0//EN\r\n";
@@ -125,7 +141,7 @@ export const generateAppICal = (transactions: Transaction[], targetRoom: string)
   
   const homestayManual = transactions.filter(t => 
     t.category === Category.HOMESTAY && 
-    t.source === 'manual' && 
+    (t.source === 'manual' || !t.source) && 
     t.room === targetRoom
   );
 
@@ -138,7 +154,7 @@ export const generateAppICal = (transactions: Transaction[], targetRoom: string)
       ical += `DTSTAMP:${now}\r\n`;
       ical += `DTSTART;VALUE=DATE:${start}\r\n`;
       ical += `DTEND;VALUE=DATE:${end}\r\n`;
-      ical += `SUMMARY:Booked: ${t.guestName || 'Guest'}\r\n`;
+      ical += `SUMMARY:Đã đặt: ${t.guestName || 'Khách'}\r\n`;
       ical += "STATUS:CONFIRMED\r\n";
       ical += "TRANSP:OPAQUE\r\n";
       ical += "END:VEVENT\r\n";
