@@ -28,27 +28,6 @@ const App: React.FC = () => {
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
-import { useEffect } from "react";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "./firebase";
-
-useEffect(() => {
-  const testFirestore = async () => {
-    try {
-      await addDoc(collection(db, "transactions"), {
-        amount: 99000,
-        note: "test from app",
-        createdAt: new Date(),
-      });
-      console.log("🔥 Firestore OK");
-    } catch (e) {
-      console.error("❌ Firestore error", e);
-    }
-  };
-
-  testFirestore();
-}, []);
-
     if (!isLoggedIn) return;
 
     let unsubscribe: (() => void) | undefined;
