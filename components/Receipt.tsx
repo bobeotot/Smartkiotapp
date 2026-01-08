@@ -32,6 +32,10 @@ export const Receipt: React.FC<ReceiptProps> = ({ transaction }) => {
           <span>Loại:</span>
           <span className="font-bold">{transaction.category}</span>
         </div>
+        <div className="flex justify-between text-[10px]">
+          <span>Trạng thái:</span>
+          <span className="font-bold underline uppercase">{transaction.isPaid ? 'Đã thanh toán' : 'CHƯA THANH TOÁN'}</span>
+        </div>
       </div>
 
       <div className="border-t border-dashed border-black my-4"></div>
@@ -49,6 +53,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ transaction }) => {
             <td className="py-3 pr-2">
               <div className="font-bold uppercase">{transaction.description}</div>
               {transaction.room && <div className="text-[9px]">Phòng: {transaction.room}</div>}
+              {transaction.guestName && <div className="text-[9px]">Khách: {transaction.guestName}</div>}
             </td>
             <td className="text-center py-3">{transaction.quantity}</td>
             <td className="text-right py-3">{transaction.originalAmount.toLocaleString()}</td>
