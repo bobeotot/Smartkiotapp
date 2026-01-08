@@ -21,7 +21,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [activeBooking, setActiveBooking] = useState<Transaction | null>(null);
   
-  // Quản lý cấu hình phòng trong localStorage
   const [roomConfigs, setRoomConfigs] = useState<Record<string, RoomConfig>>(() => {
     const saved = localStorage.getItem('smart_kiot_room_configs');
     return saved ? JSON.parse(saved) : ROOM_ICAL_CONFIG;
@@ -39,6 +38,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
     localStorage.setItem('smart_kiot_room_configs', JSON.stringify(newConfigs));
   };
 
+  // Helper chuyển Date sang YYYY-MM-DD chuẩn địa phương
+  const toDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const getBookingColor = (id: string, source?: string) => {
     if (source === 'booking.com') return 'bg-blue-700';
     let hash = 0;
@@ -47,16 +54,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   };
 
   const getBookingsForDate = (date: Date, room: string) => {
-    const target = new Date(date);
-    target.setHours(0,0,0,0);
+    const targetStr = toDateString(date);
+    
     return transactions.filter(t => {
       if (t.category !== Category.HOMESTAY || t.room !== room) return false;
       if (!t.checkIn || !t.checkOut) return false;
-      const start = new Date(t.checkIn);
-      const end = new Date(t.checkOut);
-      start.setHours(0,0,0,0);
-      end.setHours(0,0,0,0);
-      return target >= start && target < end;
+      
+      // So sánh theo chuỗi giúp tránh lỗi múi giờ
+      // Một booking hiển thị từ ngày checkIn đến trước ngày checkOut
+      return targetStr >= t.checkIn && targetStr < t.checkOut;
     }).sort((a, b) => (a.source === 'booking.com' ? -1 : 1));
   };
 
@@ -85,7 +91,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
       >
         {isBookingCom && <div className="absolute top-0.5 left-0.5 bg-white text-blue-700 rounded-full w-2.5 h-2.5 flex items-center justify-center text-[5px] font-black shadow-sm">B</div>}
         {hasConflict && <div className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-2.5 h-2.5 flex items-center justify-center text-[5px] font-black animate-pulse">!</div>}
-        <span className={`font-black uppercase leading-tight line-clamp-1 ${isMonthView ? 'text-[7px]' : 'text-[8px]'}`}>
+        <span className={`font-black uppercase leading-tight line-clamp-1 text-center ${isMonthView ? 'text-[7px]' : 'text-[8px]'}`}>
           {mainBooking.guestName || "Khách"}
         </span>
       </div>
@@ -203,7 +209,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {/* Fixed typing issue by explicitly casting Object.entries to resolve 'unknown' error */}
                   {(Object.entries(roomConfigs) as [string, RoomConfig][]).map(([room, config]) => (
                     <tr key={room}>
                       <td className="p-4 font-black text-slate-700 text-xs">Phòng {room}</td>
