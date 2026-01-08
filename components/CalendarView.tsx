@@ -47,7 +47,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Đã sao chép link đồng bộ!");
+    alert("Đã sao chép link đồng bộ! Bạn có thể dán vào Booking.com ngay.");
   };
 
   const handleSaveImportUrl = () => {
@@ -55,7 +55,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
       alert("Vui lòng dán link Export từ Booking.com (có chứa ical.booking.com)");
       return;
     }
-    alert(`Đã lưu cấu hình đồng bộ ngược cho phòng ${targetImportRoom}.`);
+    // Cập nhật cấu hình tạm thời (trong thực tế sẽ lưu vào constants hoặc DB)
+    if (ROOM_ICAL_CONFIG[targetImportRoom]) {
+      ROOM_ICAL_CONFIG[targetImportRoom].icalUrl = importIcalUrl;
+    }
+    alert(`Đã lưu cấu hình đồng bộ ngược cho phòng ${targetImportRoom}. Nhấn nút 'Đồng bộ' ở Header để tải đơn hàng mới.`);
     setImportIcalUrl('');
   };
 
@@ -217,12 +221,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
               <div key={room} className="p-6 rounded-[32px] border border-slate-100 bg-slate-50 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="font-black text-slate-800 uppercase text-xs">Phòng {room}</span>
-                  <button 
-                    onClick={() => copyToClipboard(getExportUrl(room))}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-blue-100 active:scale-95 transition-all"
-                  >
-                    Copy Link Export
-                  </button>
+                  <div className="flex gap-2">
+                    <a 
+                      href={getExportUrl(room)} 
+                      target="_blank" 
+                      className="bg-slate-800 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase hover:bg-black transition-all"
+                    >
+                      Mở Xem Thử
+                    </a>
+                    <button 
+                      onClick={() => copyToClipboard(getExportUrl(room))}
+                      className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase shadow-lg shadow-blue-100 active:scale-95 transition-all"
+                    >
+                      Copy Link
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-white/60 p-3 rounded-xl border border-white text-[9px] font-mono break-all text-slate-400">
                   {getExportUrl(room)}
@@ -230,11 +243,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
               </div>
             ))}
           </div>
-          <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
-            <i className="fas fa-info-circle text-blue-500 mt-1"></i>
-            <p className="text-[10px] text-blue-700 font-bold uppercase leading-relaxed">
-              Dán các link trên vào phần "Nhập lịch" (Import) trong Booking.com Admin để Booking tự động khóa phòng khi bạn có khách lẻ tại App.
-            </p>
+          <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
+            <div className="flex items-start gap-4">
+               <i className="fas fa-info-circle text-blue-500 mt-1"></i>
+               <div className="space-y-2">
+                  <p className="text-[10px] text-blue-700 font-black uppercase leading-relaxed">
+                    Quan trọng: Để Booking.com chấp nhận link, nội dung iCal phải là văn bản thuần túy.
+                  </p>
+                  <p className="text-[9px] text-blue-600/70 font-medium">
+                    Link trên khi mở trong tab mới phải hiển thị trực tiếp các dòng chữ <code className="bg-white/50 px-1">BEGIN:VCALENDAR...</code> mà không có bất kỳ giao diện nào khác.
+                  </p>
+               </div>
+            </div>
           </div>
         </div>
 
