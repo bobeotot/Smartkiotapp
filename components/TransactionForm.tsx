@@ -24,6 +24,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
   const [guestAddress, setGuestAddress] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [isManualPrice, setIsManualPrice] = useState(false);
+  const [isPaid, setIsPaid] = useState(true);
   const [transactionDate, setTransactionDate] = useState<string>(new Date().toLocaleDateString('sv-SE'));
   
   // Laundry states
@@ -90,20 +91,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
     if (category === Category.LAUNDRY) {
       if (laundryType === 'CLOTHES') {
         if (isDryOnly) {
-          const pricePerKg = 15000; // Giá sấy riêng
+          const pricePerKg = 12000; // Sửa lỗi: Chỉ sấy 12k
           setSubtotal(pricePerKg * quantity);
           setDescription(`Chỉ sấy quần áo (${quantity}kg)`);
         } else {
-          // Giặt sấy: <= 3kg tính 45k, > 3kg tính 15k/kg
           let base = quantity <= 3 ? 45000 : 15000 * quantity;
-          if (isSeparateWash) base += 20000; // Phụ phí giặt riêng
+          if (isSeparateWash) base += 20000;
           setSubtotal(base);
           setDescription(`Giặt sấy quần áo (${quantity}kg)${isSeparateWash ? ' + Tách màu' : ''}`);
         }
       } else if (laundryType === 'BEDDING') {
         const price = isThickBedding ? 30000 : 25000;
         setSubtotal(price * quantity);
-        setDescription(`Giặt sấy Chăn ga ${isThickBedding ? 'dày' : 'mỏng'} (${quantity} cái)`);
+        setDescription(`Chăn ga ${isThickBedding ? 'dày' : 'mỏng'} (${quantity} cái)`);
       } else if (laundryType === 'SHOES') {
         const price = shoeMaterial === 'LEATHER' ? 60000 : 50000;
         setSubtotal(price * quantity);
@@ -154,6 +154,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
       quantity,
       unit: category === Category.LAUNDRY ? (laundryType === 'SHOES' ? 'đôi' : laundryType === 'BEDDING' ? 'cái' : 'kg') : (category === Category.HOMESTAY ? 'đêm' : category === Category.BIKE ? 'chiếc' : 'phần'),
       source: 'manual',
+      isPaid,
       room: category === Category.HOMESTAY ? selectedRoom : undefined,
       checkIn: category === Category.HOMESTAY ? checkInDate : undefined,
       checkOut: category === Category.HOMESTAY ? checkOutDate : undefined
@@ -190,9 +191,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
             ))}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] text-slate-400 font-bold ml-1 uppercase">Ngày giao dịch</label>
-            <input type="date" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500" />
+          <div className="grid grid-cols-2 gap-3">
+             <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold ml-1 uppercase">Ngày giao dịch</label>
+                <input type="date" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none" />
+             </div>
+             <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold ml-1 uppercase">Thanh toán</label>
+                <button 
+                  onClick={() => setIsPaid(!isPaid)}
+                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}
+                >
+                  <i className={`fas ${isPaid ? 'fa-check-circle' : 'fa-clock'}`}></i>
+                  <span className="text-[10px] font-black uppercase">{isPaid ? 'Đã thu tiền' : 'Nợ / Chưa thu'}</span>
+                </button>
+             </div>
           </div>
 
           {/* Homestay View */}
@@ -252,7 +265,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
                   <div className="flex gap-4 p-1">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={isDryOnly} onChange={e => setIsDryOnly(e.target.checked)} className="w-4 h-4 accent-blue-600" />
-                      <span className="text-[10px] font-bold uppercase text-slate-600">Chỉ sấy (15k)</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-600">Chỉ sấy (12k)</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={isSeparateWash} onChange={e => setIsSeparateWash(e.target.checked)} className="w-4 h-4 accent-blue-600" />
