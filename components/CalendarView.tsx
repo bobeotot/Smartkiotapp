@@ -33,6 +33,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   const [importIcalUrl, setImportIcalUrl] = useState('');
   const [targetImportRoom, setTargetImportRoom] = useState(Object.keys(ROOM_ICAL_CONFIG)[0]);
 
+  // State cho công cụ chuyển đổi link Google Drive
+  const [driveUrl, setDriveUrl] = useState('');
+  const [convertedUrl, setConvertedUrl] = useState('');
+
   const months = [
     "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
     "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
@@ -41,25 +45,42 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
   const daysOfWeek = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
   const roomList = Object.keys(ROOM_ICAL_CONFIG);
 
-  const APP_DOMAIN = "https://smartkiotapp2026.vercel.app";
+  const downloadICalFile = (room: string) => {
+    const content = generateAppICal(transactions, room);
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', `room_${room}_calendar.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-  const getExportUrl = (room: string) => `${APP_DOMAIN}/?ical=${room}`;
+  const handleConvertDriveLink = () => {
+    // Regex tìm ID file từ link Google Drive
+    const match = driveUrl.match(/\/d\/(.+?)\/(view|edit|usp)/);
+    if (match && match[1]) {
+      const directLink = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      setConvertedUrl(directLink);
+    } else {
+      alert("Link Google Drive không đúng định dạng. Vui lòng dán link 'Chia sẻ' từ Google Drive.");
+    }
+  };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Đã sao chép link đồng bộ! Bạn có thể dán vào Booking.com ngay.");
+  const handleCopyConverted = () => {
+    navigator.clipboard.writeText(convertedUrl);
+    alert("Đã copy link trực tiếp! Hãy dán link này vào Booking.com.");
   };
 
   const handleSaveImportUrl = () => {
-    if (!importIcalUrl.includes('booking.com')) {
-      alert("Vui lòng dán link Export từ Booking.com (có chứa ical.booking.com)");
+    if (!importIcalUrl.includes('booking.com') && !importIcalUrl.includes('google.com')) {
+      alert("Vui lòng dán link Export hợp lệ từ Booking.com hoặc Google Calendar");
       return;
     }
-    // Cập nhật cấu hình tạm thời (trong thực tế sẽ lưu vào constants hoặc DB)
     if (ROOM_ICAL_CONFIG[targetImportRoom]) {
       ROOM_ICAL_CONFIG[targetImportRoom].icalUrl = importIcalUrl;
     }
-    alert(`Đã lưu cấu hình đồng bộ ngược cho phòng ${targetImportRoom}. Nhấn nút 'Đồng bộ' ở Header để tải đơn hàng mới.`);
+    alert(`Đã lưu cấu hình đồng bộ cho phòng ${targetImportRoom}. Nhấn nút 'Đồng bộ' ở Header để tải đơn hàng mới.`);
     setImportIcalUrl('');
   };
 
@@ -205,56 +226,78 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
     return (
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="space-y-2 border-b pb-4">
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Cấu hình iCal Sync</h3>
-          <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Đồng bộ lịch trực tiếp với Booking.com Admin</p>
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Đồng bộ lịch Booking.com</h3>
+          <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Sử dụng Google Drive để lưu lịch</p>
         </div>
 
-        {/* XUẤT LỊCH (APP -> BOOKING) */}
+        {/* CÔNG CỤ CHUYỂN ĐỔI LINK GOOGLE DRIVE */}
+        <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100 space-y-4">
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-amber-100"><i className="fab fa-google-drive"></i></div>
+             <h4 className="font-black text-amber-800 uppercase text-xs">Công cụ sửa link Google Drive (Lấy Link Trực Tiếp)</h4>
+          </div>
+          <div className="space-y-3">
+            <p className="text-[9px] font-bold text-amber-600 uppercase">Dán link "Chia sẻ" từ Drive vào đây để lấy link chuẩn cho Booking.com:</p>
+            <div className="flex gap-2">
+              <input 
+                value={driveUrl}
+                onChange={(e) => setDriveUrl(e.target.value)}
+                placeholder="Dán link Drive vào đây..."
+                className="flex-1 p-4 bg-white border border-amber-200 rounded-2xl text-[10px] outline-none"
+              />
+              <button 
+                onClick={handleConvertDriveLink}
+                className="px-6 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all"
+              >
+                Sửa Link
+              </button>
+            </div>
+            {convertedUrl && (
+              <div className="p-4 bg-white border border-amber-200 rounded-2xl space-y-2 animate-in zoom-in-95 duration-200">
+                <p className="text-[9px] font-black text-slate-400 uppercase">Link trực tiếp (Dùng link này cho Booking.com):</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-2 bg-slate-50 rounded text-[9px] break-all text-blue-600 font-mono">{convertedUrl}</code>
+                  <button onClick={handleCopyConverted} className="p-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase">Copy</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* XUẤT LỊCH (APP -> DRIVE -> BOOKING) */}
         <div className="space-y-6">
           <div className="flex items-center gap-3">
              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-blue-100">1</div>
-             <h4 className="font-black text-slate-800 uppercase text-sm">Xuất lịch từ App sang Booking.com</h4>
+             <h4 className="font-black text-slate-800 uppercase text-sm">Xuất lịch từ App lên Google Drive</h4>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {roomList.map(room => (
-              <div key={room} className="p-6 rounded-[32px] border border-slate-100 bg-slate-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-black text-slate-800 uppercase text-xs">Phòng {room}</span>
-                  <div className="flex gap-2">
-                    <a 
-                      href={getExportUrl(room)} 
-                      target="_blank" 
-                      className="bg-slate-800 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase hover:bg-black transition-all"
-                    >
-                      Mở Xem Thử
-                    </a>
-                    <button 
-                      onClick={() => copyToClipboard(getExportUrl(room))}
-                      className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase shadow-lg shadow-blue-100 active:scale-95 transition-all"
-                    >
-                      Copy Link
-                    </button>
-                  </div>
+              <button 
+                key={room} 
+                onClick={() => downloadICalFile(room)}
+                className="group p-6 rounded-[32px] border-2 border-dashed border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-center space-y-3"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center mx-auto transition-all text-slate-400">
+                   <i className="fas fa-file-download text-sm"></i>
                 </div>
-                <div className="bg-white/60 p-3 rounded-xl border border-white text-[9px] font-mono break-all text-slate-400">
-                  {getExportUrl(room)}
+                <div>
+                  <div className="font-black text-slate-800 uppercase text-[10px]">Tải file .ics</div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Phòng {room}</div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
+
           <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
-            <div className="flex items-start gap-4">
-               <i className="fas fa-info-circle text-blue-500 mt-1"></i>
-               <div className="space-y-2">
-                  <p className="text-[10px] text-blue-700 font-black uppercase leading-relaxed">
-                    Quan trọng: Để Booking.com chấp nhận link, nội dung iCal phải là văn bản thuần túy.
-                  </p>
-                  <p className="text-[9px] text-blue-600/70 font-medium">
-                    Link trên khi mở trong tab mới phải hiển thị trực tiếp các dòng chữ <code className="bg-white/50 px-1">BEGIN:VCALENDAR...</code> mà không có bất kỳ giao diện nào khác.
-                  </p>
-               </div>
-            </div>
+            <h5 className="text-[10px] font-black text-blue-700 uppercase">Hướng dẫn đồng bộ sang Booking.com:</h5>
+            <ol className="text-[10px] text-blue-600/80 font-bold space-y-2 list-decimal ml-4 uppercase tracking-tight leading-relaxed">
+              <li>Bấm nút ở trên để tải file <code className="bg-white px-1">.ics</code> về máy tính.</li>
+              <li>Tải file này lên **Google Drive** của bạn.</li>
+              <li>Chuột phải vào file trên Drive -> **Chia sẻ** -> Đổi thành **"Bất kỳ ai có đường liên kết"**.</li>
+              <li>Sử dụng **Công cụ sửa link** ở trên cùng trang này để chuyển link Drive đó thành link trực tiếp.</li>
+              <li>Dán link đã sửa vào mục **"Nhập lịch/Import"** trong Booking.com Admin.</li>
+            </ol>
           </div>
         </div>
 
