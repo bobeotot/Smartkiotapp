@@ -164,7 +164,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium">Bấm vào nút "Tải file .ics" của từng phòng bên dưới để lưu lịch từ App về máy tính.</p>
               </div>
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
-                <i className="fab fa-google-drive text-emerald-600 text-xl"></i>
+                <p>
+  Chuột phải vào file trên Drive &gt; Chia sẻ &gt; Bất kỳ ai có đường liên kết
+</p>
+
                 <h5 className="font-black text-[10px] uppercase">Bước 2: Upload lên Drive</h5>
                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium">Tải file vừa tải lên Google Drive, chuột phải chọn "Chia sẻ" -> "Bất kỳ ai có link". Sau đó dán link vào công cụ Sửa Link bên dưới.</p>
               </div>
