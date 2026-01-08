@@ -292,11 +292,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ transactions }) => {
           <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
             <h5 className="text-[10px] font-black text-blue-700 uppercase">Hướng dẫn đồng bộ sang Booking.com:</h5>
             <ol className="text-[10px] text-blue-600/80 font-bold space-y-2 list-decimal ml-4 uppercase tracking-tight leading-relaxed">
-              <li>Bấm nút ở trên để tải file <code className="bg-white px-1">.ics</code> về máy tính.</li>
-              <li>Tải file này lên **Google Drive** của bạn.</li>
-              <li>Chuột phải vào file trên Drive -> **Chia sẻ** -> Đổi thành **"Bất kỳ ai có đường liên kết"**.</li>
-              <li>Sử dụng **Công cụ sửa link** ở trên cùng trang này để chuyển link Drive đó thành link trực tiếp.</li>
-              <li>Dán link đã sửa vào mục **"Nhập lịch/Import"** trong Booking.com Admin.</li>
+              <li>
+  Chuột phải vào file trên Drive → <strong>Chia sẻ</strong> → Đổi thành{" "}
+  <strong>Bất kỳ ai có đường liên kết</strong>.
+</li>
+
             </ol>
           </div>
         </div>
