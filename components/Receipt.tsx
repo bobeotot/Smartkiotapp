@@ -32,13 +32,13 @@ export const Receipt: React.FC<ReceiptProps> = ({ transaction }) => {
           <span>Loại:</span>
           <span className="font-bold">{transaction.category}</span>
         </div>
-        <div className="flex justify-between text-[10px]">
-          <span>Trạng thái:</span>
-          <span className="font-bold underline uppercase">{transaction.isPaid ? 'Đã thanh toán' : 'CHƯA THANH TOÁN'}</span>
-        </div>
       </div>
 
       <div className="border-t border-dashed border-black my-4"></div>
+
+      <div className="bg-black text-white p-2 text-center text-xs font-black uppercase mb-4 tracking-widest">
+        {transaction.isPaid ? '--- ĐÃ THANH TOÁN ---' : '--- CHƯA THANH TOÁN ---'}
+      </div>
 
       <table className="w-full text-[11px] mb-4">
         <thead>
@@ -85,7 +85,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ transaction }) => {
       <div className="text-center space-y-1">
         <p className="font-bold text-[10px]">CẢM ƠN QUÝ KHÁCH!</p>
         <p className="text-[9px] italic">Hẹn gặp lại quý khách lần sau</p>
-        <p className="text-[8px] mt-4 text-slate-400">Powered by Smart Kiot App</p>
+        <p className="text-[8px] mt-4 text-slate-400">Powered by smartkiotapp2026.vercel.app</p>
       </div>
       
       <style dangerouslySetInnerHTML={{ __html: `

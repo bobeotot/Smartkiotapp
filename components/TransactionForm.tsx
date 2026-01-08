@@ -91,7 +91,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ transactions, 
     if (category === Category.LAUNDRY) {
       if (laundryType === 'CLOTHES') {
         if (isDryOnly) {
-          const pricePerKg = 12000; // Sửa lỗi: Chỉ sấy 12k
+          const pricePerKg = 12000; // Đã sửa thành 12k
           setSubtotal(pricePerKg * quantity);
           setDescription(`Chỉ sấy quần áo (${quantity}kg)`);
         } else {
