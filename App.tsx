@@ -8,7 +8,7 @@ import { Receipt } from './components/Receipt';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
 import { FoodScheduleView } from './components/FoodScheduleView';
-import { syncBookingCom } from './services/bookingService';
+import { syncBookingCom, generateAppICal } from './services/bookingService';
 import { dbService } from './services/dbService';
 
 type ViewState = 'dashboard' | 'calendar' | 'food-schedule';
@@ -27,8 +27,12 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
+  // Xử lý chế độ "iCal Server" - Trả về text/calendar thuần túy cho Booking.com
+  const urlParams = new URLSearchParams(window.location.search);
+  const icalRoom = urlParams.get('ical');
+
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn && !icalRoom) return;
 
     let unsubscribe: (() => void) | undefined;
 
@@ -64,13 +68,20 @@ const App: React.FC = () => {
 
     initApp();
     return () => unsubscribe?.();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, icalRoom]);
+
+  // Nếu Booking.com gọi đến link có ?ical=... thì chỉ in ra iCal text và dừng lại
+  if (icalRoom && !isLoading && transactions.length > 0) {
+    const icalContent = generateAppICal(transactions, icalRoom);
+    // Thay thế toàn bộ HTML bằng text/calendar
+    document.body.innerHTML = `<pre style="white-space: pre-wrap; font-family: monospace;">${icalContent}</pre>`;
+    return null;
+  }
 
   const enableDemoMode = () => {
     dbService.setOffline(true);
     setDbStatus('offline_mode');
     setIsLoading(true);
-    // Hủy bỏ mọi subscription cũ nếu có và tạo mới ở chế độ offline
     const unsub = dbService.subscribeTransactions((data) => {
       setTransactions(data);
       setIsLoading(false);
@@ -141,22 +152,23 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="bg-blue-600 p-2 rounded-lg text-white"><i className="fas fa-cash-register"></i></div>
-            <h1 className="font-black text-slate-800 uppercase hidden md:block">Smart Kiot</h1>
+            <h1 className="font-black text-slate-800 uppercase hidden md:block text-sm tracking-tighter">Smart Kiot</h1>
             <nav className="flex gap-1 bg-slate-100 p-1 rounded-xl ml-4 overflow-x-auto no-scrollbar">
-              <button onClick={() => setCurrentView('dashboard')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${currentView === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Thu Chi</button>
+              <button onClick={() => setCurrentView('dashboard')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${currentView === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Dashboard</button>
               <button onClick={() => setCurrentView('calendar')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${currentView === 'calendar' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Lịch Phòng</button>
-              <button onClick={() => setCurrentView('food-schedule')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${currentView === 'food-schedule' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>Lịch Giao Cơm</button>
+              <button onClick={() => setCurrentView('food-schedule')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${currentView === 'food-schedule' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>Giao Cơm</button>
             </nav>
           </div>
           
           <div className="flex gap-3 items-center">
-            <div className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase border flex items-center gap-1.5 hidden sm:flex ${
-              dbStatus === 'connected' ? 'bg-green-50 text-green-600 border-green-100' : 
-              dbStatus === 'offline_mode' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-              {dbStatus === 'connected' ? 'Cloud' : dbStatus === 'offline_mode' ? 'Demo' : 'Offline'}
-            </div>
+            <button 
+              onClick={handleSyncBooking} 
+              disabled={isSyncing}
+              className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${isSyncing ? 'bg-slate-50 text-slate-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'}`}
+            >
+              <i className={`fas fa-sync-alt text-xs ${isSyncing ? 'animate-spin' : ''}`}></i>
+              <span className="text-[8px] font-black uppercase hidden sm:block">Đồng bộ</span>
+            </button>
             <button onClick={() => setIsFormOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 whitespace-nowrap">+ ĐƠN MỚI</button>
             <button onClick={handleLogout} className="p-2 text-slate-300 hover:text-red-500"><i className="fas fa-sign-out-alt"></i></button>
           </div>
@@ -167,33 +179,7 @@ const App: React.FC = () => {
         {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-400 text-[10px] font-black uppercase">Đang khởi tạo hệ thống...</p>
-          </div>
-        ) : (dbStatus === 'not_created' || dbStatus === 'error') ? (
-          <div className="bg-white p-10 md:p-20 rounded-[40px] border-2 border-dashed border-slate-200 text-center space-y-8 shadow-xl animate-in zoom-in-95 duration-500">
-            <div className="w-24 h-24 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mx-auto text-4xl shadow-inner shadow-amber-100/50"><i className="fas fa-database"></i></div>
-            <div className="space-y-3">
-              <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Cấu hình Database Cloud</h3>
-              <p className="text-slate-500 text-sm max-w-md mx-auto font-medium leading-relaxed">
-                Hệ thống chưa tìm thấy Database trên project Firebase của bạn. Bạn cần vào Firebase Console để tạo <b>Cloud Firestore</b> (chế độ Production hoặc Test).
-              </p>
-              <div className="bg-slate-50 p-4 rounded-2xl text-[10px] font-mono text-slate-400 break-all border border-slate-100">
-                Project ID: <b>smartkiotsusu</b><br/>
-                Status: {dbStatus === 'not_created' ? 'Database Not Found' : 'Connection Error'}
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <a href="https://console.firebase.google.com/project/smartkiotsusu/firestore" target="_blank" className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase shadow-2xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-2">
-                <i className="fas fa-external-link-alt"></i> Đi tới Firebase Console
-              </a>
-              <button onClick={enableDemoMode} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase shadow-2xl hover:bg-blue-700 transition-all active:scale-95">
-                Dùng Chế độ Offline (Demo)
-              </button>
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-              * Lưu ý: Chế độ Offline sẽ lưu dữ liệu vào trình duyệt.<br/>
-              Dữ liệu sẽ bị mất nếu bạn xóa lịch sử web hoặc dùng máy khác.
-            </p>
+            <p className="text-slate-400 text-[10px] font-black uppercase">Đang tải dữ liệu...</p>
           </div>
         ) : currentView === 'calendar' ? (
           <CalendarView transactions={transactions} />
@@ -207,10 +193,10 @@ const App: React.FC = () => {
               ))}
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard label="Tổng Doanh Thu" value={stats.grand.toLocaleString()} icon={<i className="fas fa-wallet"></i>} colorClass="bg-blue-600" />
+              <StatCard label="Doanh Thu" value={stats.grand.toLocaleString()} icon={<i className="fas fa-wallet"></i>} colorClass="bg-blue-600" />
               <StatCard label="Giặt Sấy" value={stats.totals[Category.LAUNDRY].toLocaleString()} icon={<i className="fas fa-tshirt"></i>} colorClass="bg-sky-500" />
               <StatCard label="Homestay" value={stats.totals[Category.HOMESTAY].toLocaleString()} icon={<i className="fas fa-bed"></i>} colorClass="bg-indigo-600" />
-              <StatCard label="Healthy Food" value={stats.totals[Category.FOOD].toLocaleString()} icon={<i className="fas fa-utensils"></i>} colorClass="bg-emerald-500" />
+              <StatCard label="Cơm / Xe" value={(stats.totals[Category.FOOD] + stats.totals[Category.BIKE]).toLocaleString()} icon={<i className="fas fa-plus"></i>} colorClass="bg-emerald-500" />
             </div>
             <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-5 border-b font-black text-slate-400 text-[9px] uppercase tracking-widest bg-slate-50/50 flex justify-between items-center">
@@ -218,28 +204,21 @@ const App: React.FC = () => {
                   <i className="fas fa-history text-xs"></i>
                   <span>Lịch sử giao dịch ({filteredTransactions.length})</span>
                 </div>
-                {dbStatus === 'offline_mode' && <span className="text-amber-500 font-bold tracking-normal italic uppercase bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Chế độ Demo</span>}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-slate-100">
                     {filteredTransactions.length === 0 ? (
-                      <tr><td className="p-20 text-center text-slate-300 font-black italic text-[10px] uppercase tracking-widest">Chưa có giao dịch nào.</td></tr>
+                      <tr><td className="p-20 text-center text-slate-300 font-black italic text-[10px] uppercase tracking-widest">Chưa có giao dịch.</td></tr>
                     ) : (
                       filteredTransactions.map(tx => (
                         <tr key={tx.id} className="group hover:bg-slate-50 transition-all border-l-4 border-transparent hover:border-blue-500">
                           <td className="px-6 py-5">
                             <div className="font-black text-slate-800 text-sm uppercase tracking-tight">{tx.description}</div>
-                            <div className="text-[10px] text-slate-400 mt-1.5 uppercase font-black flex flex-wrap items-center gap-2">
-                              <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500">{new Date(tx.date).toLocaleTimeString('vi-VN')}</span>
+                            <div className="text-[10px] text-slate-400 mt-1.5 uppercase font-black flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded ${tx.isPaid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{tx.isPaid ? 'Đã thu' : 'Chưa thu'}</span>
                               <span className="opacity-20">•</span>
-                              <span className="text-slate-400">{tx.category}</span>
-                              {tx.guestName && (
-                                <>
-                                  <span className="opacity-20">•</span>
-                                  <span className="text-blue-500 font-bold">{tx.guestName}</span>
-                                </>
-                              )}
+                              <span>{tx.category}</span>
                             </div>
                           </td>
                           <td className="px-6 py-5 text-right font-black text-slate-900 text-base">{tx.amount.toLocaleString()}đ</td>
@@ -261,7 +240,6 @@ const App: React.FC = () => {
       </main>
       {isFormOpen && <TransactionForm transactions={transactions} onAdd={(tx, print) => dbService.addTransaction(tx).then(id => { 
         const added = { ...tx, id }; 
-        // Force update UI for offline mode
         setTransactions(prev => [added, ...prev]); 
         if (print) { setPrintTx(added); setTimeout(() => window.print(), 300); }
         setIsFormOpen(false);
