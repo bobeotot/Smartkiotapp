@@ -38,10 +38,9 @@ export const CATEGORY_CONFIG = {
 };
 
 // Cấu hình Link iCal cho từng phòng từ Booking.com
-// Thêm "List Tổng" quản lý 201, 202, 203
 export const ROOM_ICAL_CONFIG: Record<string, { icalUrl: string, price: number }> = {
   '101': {
-    icalUrl: "https://ical.booking.com/v1/export?t=166ecff5-739b-4822-92ae-f0b29f05a8fa",
+    icalUrl: "https://ical.booking.com/v1/export?t=eb1ec19f-1889-4f4b-ad08-5d578c6e157c",
     price: 600000
   },
   '201': {
@@ -57,7 +56,7 @@ export const ROOM_ICAL_CONFIG: Record<string, { icalUrl: string, price: number }
     price: 300000
   },
   'List Tổng': {
-    icalUrl: "", // iCal của nguyên căn
+    icalUrl: "", 
     price: 900000
   }
 };
@@ -68,7 +67,7 @@ export const ROOM_DEPENDENCIES: Record<string, string[]> = {
 };
 
 export const MOCK_TRANSACTIONS = [
-  { id: '1', category: Category.LAUNDRY, amount: 50000, date: new Date().toISOString(), description: 'Khách lẻ - 5kg', quantity: 5, unit: 'kg', source: 'manual' as const },
-  { id: '2', category: Category.FOOD, amount: 120000, date: new Date().toISOString(), description: 'Salad ức gà x2', quantity: 2, unit: 'phần', source: 'manual' as const },
-  { id: '3', category: Category.HOMESTAY, amount: 450000, date: new Date().toISOString(), description: 'Phòng 201 - 1 đêm', quantity: 1, unit: 'đêm', room: '201', source: 'manual' as const },
+  { id: '1', category: Category.LAUNDRY, amount: 50000, date: new Date().toISOString(), description: 'Khách lẻ - 5kg', quantity: 5, unit: 'kg', source: 'manual' as const, isPaid: true },
+  { id: '2', category: Category.FOOD, amount: 120000, date: new Date().toISOString(), description: 'Salad ức gà x2', quantity: 2, unit: 'phần', source: 'manual' as const, isPaid: true },
+  { id: '3', category: Category.HOMESTAY, amount: 450000, date: new Date().toISOString(), description: 'Phòng 201 - 1 đêm', quantity: 1, unit: 'đêm', room: '201', source: 'manual' as const, isPaid: true },
 ];
